@@ -54,6 +54,48 @@ exports.getProperty = async (req, res) => {
       res.status(500).json({ message: 'Erro ao buscar a propriedade' });
     }
   };
+  // @desc    Listar propriedades com paginação
+// @route   GET /api/properties
+// @access  Público
+exports.getProperties = async (req, res) => {
+    const pageSize = 10;
+    const page = Number(req.query.pageNumber) || 1;
+  
+    try {
+      const count = await Property.countDocuments({});
+      const properties = await Property.find({})
+        .limit(pageSize)
+        .skip(pageSize * (page - 1));
+  
+      res.status(200).json({
+        properties,
+        page,
+        pages: Math.ceil(count / pageSize),
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Erro ao buscar propriedades' });
+    }
+  };
+// @desc    Relatório: Propriedades mais reservadas
+// @route   GET /api/properties/top-reserved
+// @access  Admin
+exports.getTopReservedProperties = async (req, res) => {
+    try {
+      const topProperties = await Booking.aggregate([
+        { $group: { _id: "$property", totalReservations: { $sum: 1 } } },
+        { $sort: { totalReservations: -1 } },
+        { $limit: 10 },
+        { $lookup: { from: 'properties', localField: '_id', foreignField: '_id', as: 'propertyDetails' } }
+      ]);
+  
+      res.status(200).json(topProperties);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Erro ao gerar o relatório' });
+    }
+  };
+    
 // @desc    Atualizar uma propriedade
 // @route   PUT /api/properties/:id
 // @access  Privado (somente o proprietário pode atualizar)

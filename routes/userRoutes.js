@@ -13,6 +13,6 @@ router.post('/login', login);
 router.put('/update', protect, updateUser);
 
 // Rota para deletar a conta do usuário autenticado
-router.delete('/delete/:id', protect, deleteUser);
+router.delete('/delete', protect, deleteUser);
 
 module.exports = router;

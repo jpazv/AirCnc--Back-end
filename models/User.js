@@ -46,5 +46,16 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+UserSchema.pre('remove', async function (next) {
+    // Deletar todas as reservas feitas pelo usuário
+    await Booking.deleteMany({ user: this._id });
+  
+    // Deletar todas as avaliações feitas pelo usuário
+    await Review.deleteMany({ user: this._id });
+  
+    next();
+  });
+  
+
 // Verifica se o modelo já foi registrado antes de defini-lo novamente
 module.exports = mongoose.models.User || mongoose.model('User', UserSchema);

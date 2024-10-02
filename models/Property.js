@@ -28,4 +28,15 @@ const PropertySchema = new mongoose.Schema({
   },
 });
 
+PropertySchema.pre('remove', async function (next) {
+    // Deletar reservas relacionadas
+    await Booking.deleteMany({ property: this._id });
+  
+    // Deletar avaliações relacionadas
+    await Review.deleteMany({ property: this._id });
+  
+    next();
+  });
+  
+
 module.exports = mongoose.model('Property', PropertySchema);

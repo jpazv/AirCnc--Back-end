@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 // Função auxiliar para gerar tokens JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d', // Token expira em 30 dias
+    expiresIn: '30d',
   });
 };
 
@@ -51,28 +51,27 @@ exports.register = async (req, res) => {
 // @route   POST /api/users/login
 // @access  Público
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Verificar se o usuário existe
-    const user = await User.findOne({ email });
-
-    if (user && (await bcrypt.compare(password, user.password))) {
-      // Se a senha estiver correta, retornar o token JWT
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(400).json({ message: 'Credenciais inválidas' });
+    const { email, password } = req.body;
+  
+    try {
+      const user = await User.findOne({ email }).select('+password');
+  
+      if (user && (await user.matchPassword(password))) {
+        res.json({
+          message: 'Login realizado com sucesso!',
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          token: generateToken(user._id),
+        });
+      } else {
+        res.status(400).json({ message: 'Credenciais inválidas' });
+      }
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao realizar o login' });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro no servidor' });
-  }
-};
+  };
+  
 
 // @desc    Atualizar dados do usuário
 // @route   PUT /api/users/update
@@ -106,7 +105,7 @@ exports.updateUser = async (req, res) => {
       _id: updatedUser._id,
       name: updatedUser.name,
       email: updatedUser.email,
-      token: generateToken(updatedUser._id), // Gera novo token com os dados atualizados
+      token: generateToken(updatedUser._id),
     });
   } catch (error) {
     console.error(error);
@@ -118,17 +117,25 @@ exports.updateUser = async (req, res) => {
 // @route   DELETE /api/users/delete
 // @access  Privado (somente o usuário autenticado pode deletar sua conta)
 exports.deleteUser = async (req, res) => {
-  try {
-    // Encontrar e deletar o usuário autenticado
-    const user = await User.deleteOne(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
+    try {
+      const user = await User.findById(req.user._id);
+  
+      if (!user) {
+        return res.status(404).json({ message: 'Usuário não encontrado' });
+      }
+  
+      // Deletar todas as reservas feitas pelo usuário
+      await Booking.deleteMany({ user: req.user._id });
+  
+      // Deletar todas as avaliações feitas pelo usuário
+      await Review.deleteMany({ user: req.user._id });
+  
+      // Deletar o próprio usuário
+      await user.remove();
+  
+      res.status(200).json({ message: 'Conta de usuário e dependências deletadas com sucesso' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Erro ao deletar a conta do usuário' });
     }
-
-    res.status(200).json({ message: 'Conta de usuário deletada com sucesso' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro ao deletar a conta do usuário' });
-  }
-};
+  };
